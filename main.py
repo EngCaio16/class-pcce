@@ -67,24 +67,30 @@ def calcular_aprovados(total: int = Query(..., gt=0, description="Número total 
     qtd_negro = int(0.20 * total)
     qtd_pcd   = int(0.05 * total)
 
-    # Cada lista é independente, ordenada pelo seu próprio ranking
+    # 1. Ampla: melhores classificações gerais
     df_ampla = (
         df[df["Geral"].notna()]
         .sort_values(by="Geral")
         .iloc[:qtd_ampla]
     )
 
+    # 2. Negro: melhores entre negros que NÃO estão na ampla
     df_negro = (
-        df[df["Negro"].notna()]
+        df[
+            df["Negro"].notna() &
+            (~df["Pedido"].isin(df_ampla["Pedido"]))
+        ]
         .sort_values(by="Negro")
         .iloc[:qtd_negro]
     )
 
-    df_pcd = (
-        df[df["PcD"].notna()]
-        .sort_values(by="PcD")
-        .iloc[:qtd_pcd]
-    )
+    # 3. PcD: melhores entre PcD que NÃO estão na ampla nem no negro
+    df_pcd_base = df[
+        (df["Situação"].str.contains("PcD", na=False)) &
+        (~df["Pedido"].isin(df_ampla["Pedido"])) &
+        (~df["Pedido"].isin(df_negro["Pedido"]))
+    ]
+    df_pcd = df_pcd_base.iloc[:qtd_pcd]
 
     resultado = {
         "configuracao": {
