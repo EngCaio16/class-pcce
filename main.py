@@ -125,9 +125,9 @@ def calcular_aprovados(total: int = Query(..., gt=0, description="Número total 
         },
         "resumo_entrega": {
             "total_selecionado": len(df_ampla) + len(df_negro) + len(df_pcd),
-            "ampla_final": len(df_ampla),
-            "negro_final": len(df_negro),
-            "pcd_final": len(df_pcd),
+            "ampla_selecionados": len(df_ampla),   # <-- Volte para o nome original aqui
+            "negro_selecionados": len(df_negro),   # <-- Volte para o nome original aqui
+            "pcd_selecionados": len(df_pcd),       # <-- Volte para o nome original aqui
             "vagas_remanescentes_revertidas_para_ampla": int(vagas_remanescentes)
         },
         "listas": {
