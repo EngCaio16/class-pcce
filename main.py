@@ -67,22 +67,28 @@ def calcular_aprovados(total: int = Query(..., gt=0, description="Número total 
     qtd_negro = int(0.20 * total)
     qtd_pcd   = int(0.05 * total)
 
-    # Cada grupo já separado pelo campo Situação,
-    # ordenado pela sua própria coluna de ranking
+    # Cada grupo separado pelo Segmento e ordenado pelo seu ranking próprio.
+    # Inclui tanto classificados quanto cadastro de reserva, permitindo até 2000+.
     df_ampla = (
-        df[df["Situação"] == "Classificado (Ampla)"]
+        df[df["Segmento"] == "Ampla"]
         .sort_values("Geral")
         .iloc[:qtd_ampla]
     )
 
     df_negro = (
-        df[df["Situação"] == "Classificado (Negro)"]
+        df[
+            df["Segmento"].str.contains("Negro", case=False, na=False) &
+            df["Negro"].notna()
+        ]
         .sort_values("Negro")
         .iloc[:qtd_negro]
     )
 
     df_pcd = (
-        df[df["Situação"] == "Classificado (PcD)"]
+        df[
+            df["Segmento"].str.contains("PcD", case=False, na=False) &
+            df["PcD"].notna()
+        ]
         .sort_values("PcD")
         .iloc[:qtd_pcd]
     )
