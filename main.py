@@ -1,18 +1,27 @@
 import pandas as pd
 import numpy as np
 from fastapi import FastAPI, Query, HTTPException
-from fastapi.responses import Response
+from fastapi.responses import Response, FileResponse
+from fastapi.staticfiles import StaticFiles
+from fastapi.middleware.cors import CORSMiddleware
 import json
+import os
 
 app = FastAPI(
     title="API de Seleção de Aprovados - PCCE",
     description="API para calcular aprovados em Ampla Concorrência, Negros e PCD com base em um número total."
 )
 
-import os
-# Caminho absoluto para garantir que o Vercel encontre o arquivo
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 CSV_PATH = os.path.join(BASE_DIR, "resultado_extracao.csv")
+
 
 def get_clean_data():
     try:
@@ -24,15 +33,14 @@ def get_clean_data():
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erro ao carregar base de dados: {str(e)}")
 
+
 def to_json_compatible(df_subset):
-    """Converte DataFrame para lista de dicionários tratando NaNs e tipos não-JSON."""
     records = df_subset.to_dict(orient="records")
     clean_records = []
     for record in records:
         clean_record = {}
         for key, value in record.items():
-            # Tratar NaN, Inf e tipos complexos
-            if pd.isna(value) or (isinstance(value, float) and (np.isinf(value))):
+            if pd.isna(value) or (isinstance(value, float) and np.isinf(value)):
                 clean_record[key] = None
             elif isinstance(value, (np.integer, np.floating)):
                 clean_record[key] = value.item()
@@ -41,7 +49,8 @@ def to_json_compatible(df_subset):
         clean_records.append(clean_record)
     return clean_records
 
-@app.get("/")
+
+@app.get("/api")
 def home():
     return {
         "status": "online",
@@ -50,17 +59,18 @@ def home():
         "exemplo_uso": "/aprovados?total=100"
     }
 
+
 @app.get("/aprovados")
 def calcular_aprovados(total: int = Query(..., gt=0, description="Número total de aprovados desejado")):
     df = get_clean_data()
 
     qtd_ampla = int(0.75 * total)
     qtd_negro = int(0.20 * total)
-    qtd_pcd = int(0.05 * total)
+    qtd_pcd   = int(0.05 * total)
 
     df_ampla = df[df["Geral"].notna()].sort_values(by="Geral").iloc[:qtd_ampla]
     df_negro = df[df["Negro"].notna()].sort_values(by="Negro").iloc[:qtd_negro]
-    
+
     df_pcd_base = df[
         (df["Situação"].str.contains("PcD", na=False)) &
         (~df["Pedido"].isin(df_ampla["Pedido"])) &
@@ -84,15 +94,20 @@ def calcular_aprovados(total: int = Query(..., gt=0, description="Número total 
         "listas": {
             "ampla": to_json_compatible(df_ampla),
             "negro": to_json_compatible(df_negro),
-            "pcd": to_json_compatible(df_pcd)
+            "pcd":   to_json_compatible(df_pcd)
         }
     }
 
-    # Usar json.dumps explicitamente para evitar o erro do serializador do FastAPI
     return Response(
         content=json.dumps(resultado, ensure_ascii=False),
         media_type="application/json"
     )
+
+
+@app.get("/")
+def serve_index():
+    return FileResponse(os.path.join(BASE_DIR, "index.html"))
+
 
 if __name__ == "__main__":
     import uvicorn

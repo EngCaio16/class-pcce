@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Quadro de Aprovados — PCCE</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:        #F7F6F2;
+    --surface:   #FFFFFF;
+    --border:    #E2E0D8;
+    --text:      #1A1916;
+    --muted:     #6B6860;
+    --blue:      #185FA5;
+    --blue-bg:   #E6F1FB;
+    --pink:      #993556;
+    --pink-bg:   #FBEAF0;
+    --green:     #0F6E56;
+    --green-bg:  #E1F5EE;
+    --amber:     #854F0B;
+    --amber-bg:  #FAEEDA;
+    --radius:    10px;
+    --radius-lg: 14px;
+  }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 0;
+  }
+
+  /* ── HEADER ── */
+  header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 18px 32px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  header .logo {
+    width: 34px; height: 34px;
+    background: var(--text);
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  header .logo svg { width: 18px; height: 18px; fill: var(--bg); }
+  header h1 { font-size: 16px; font-weight: 700; letter-spacing: -0.3px; }
+  header span { font-size: 13px; color: var(--muted); margin-left: 4px; }
+
+  /* ── LAYOUT ── */
+  .page { max-width: 1000px; margin: 0 auto; padding: 32px 24px; }
+
+  /* ── CONTROL CARD ── */
+  .control-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 28px 32px;
+    margin-bottom: 28px;
+  }
+
+  .control-top {
+    display: flex;
+    align-items: flex-end;
+    gap: 20px;
+    margin-bottom: 28px;
+    flex-wrap: wrap;
+  }
+
+  .field { display: flex; flex-direction: column; gap: 6px; }
+  .field label { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; color: var(--muted); }
+  .field input[type=number] {
+    width: 140px;
+    height: 44px;
+    font-family: 'DM Mono', monospace;
+    font-size: 22px;
+    font-weight: 500;
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius);
+    padding: 0 14px;
+    background: var(--bg);
+    color: var(--text);
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  .field input[type=number]:focus { border-color: var(--text); }
+
+  .btn-gerar {
+    height: 44px;
+    padding: 0 24px;
+    background: var(--text);
+    color: var(--bg);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+    font-weight: 700;
+    border: none;
+    border-radius: var(--radius);
+    cursor: pointer;
+    display: flex; align-items: center; gap: 8px;
+    transition: opacity 0.15s, transform 0.1s;
+    flex-shrink: 0;
+  }
+  .btn-gerar:hover { opacity: 0.85; }
+  .btn-gerar:active { transform: scale(0.97); }
+  .btn-gerar.loading { opacity: 0.6; pointer-events: none; }
+
+  .spinner {
+    width: 14px; height: 14px;
+    border: 2px solid rgba(255,255,255,0.3);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    display: none;
+  }
+  .btn-gerar.loading .spinner { display: block; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── QUOTA PILLS ── */
+  .quota-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 14px;
+  }
+  .quota-pill {
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px 18px;
+    background: var(--bg);
+  }
+  .qp-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+  .qp-badge {
+    font-size: 11px; font-weight: 700; letter-spacing: 0.4px;
+    padding: 3px 9px; border-radius: 20px;
+  }
+  .qp-pct { font-size: 12px; color: var(--muted); font-family: 'DM Mono', monospace; }
+  .qp-count { font-size: 28px; font-weight: 700; font-family: 'DM Mono', monospace; line-height: 1; margin-bottom: 10px; }
+  .qp-bar { height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; }
+  .qp-fill { height: 100%; border-radius: 2px; transition: width 0.35s cubic-bezier(.4,0,.2,1); }
+
+  /* ── ERROR ── */
+  .error { display: none; font-size: 13px; color: #A32D2D; margin-top: 14px; background: #FCEBEB; border: 1px solid #F09595; border-radius: 8px; padding: 10px 14px; }
+
+  /* ── METRICS ── */
+  .metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px; }
+  .metric {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px 18px;
+  }
+  .metric-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--muted); margin-bottom: 6px; }
+  .metric-value { font-size: 26px; font-weight: 700; font-family: 'DM Mono', monospace; }
+
+  /* ── BOARD ── */
+  .board {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+  }
+
+  .tabs { display: flex; border-bottom: 1px solid var(--border); }
+  .tab {
+    flex: 1; padding: 13px 10px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px; font-weight: 700;
+    color: var(--muted);
+    background: var(--bg);
+    border: none; border-right: 1px solid var(--border);
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    transition: background 0.15s, color 0.15s;
+  }
+  .tab:last-child { border-right: none; }
+  .tab.active { background: var(--surface); color: var(--text); }
+  .tab-chip {
+    font-size: 11px; font-weight: 700;
+    padding: 2px 8px; border-radius: 20px;
+  }
+
+  .board-toolbar {
+    padding: 12px 18px;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 10px;
+  }
+  .search-wrap { position: relative; flex: 1; }
+  .search-wrap svg { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); width: 15px; height: 15px; stroke: var(--muted); fill: none; stroke-width: 2; }
+  .search-wrap input {
+    width: 100%; height: 36px; padding: 0 12px 0 34px;
+    border: 1px solid var(--border); border-radius: 8px;
+    font-family: 'DM Sans', sans-serif; font-size: 13px;
+    background: var(--bg); color: var(--text); outline: none;
+    transition: border-color 0.15s;
+  }
+  .search-wrap input:focus { border-color: var(--text); }
+  .board-count { font-size: 12px; color: var(--muted); white-space: nowrap; font-family: 'DM Mono', monospace; }
+
+  .table-wrap { overflow-y: auto; max-height: 480px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; table-layout: fixed; }
+  thead th {
+    position: sticky; top: 0; z-index: 1;
+    background: var(--bg);
+    padding: 9px 16px;
+    font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;
+    color: var(--muted); text-align: left;
+    border-bottom: 1px solid var(--border);
+  }
+  th.right, td.right { text-align: right; }
+  tbody td { padding: 11px 16px; border-bottom: 1px solid var(--border); color: var(--text); }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr:hover td { background: var(--bg); }
+  .td-rank { width: 56px; font-family: 'DM Mono', monospace; font-size: 12px; color: var(--muted); }
+  .td-rank.gold   { color: #B8860B; font-weight: 700; }
+  .td-rank.silver { color: #7A7A7A; font-weight: 700; }
+  .td-rank.bronze { color: #A0522D; font-weight: 700; }
+  .td-nome { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
+  .td-nota { width: 80px; font-family: 'DM Mono', monospace; font-weight: 700; }
+  .td-pedido { width: 80px; font-family: 'DM Mono', monospace; font-size: 12px; color: var(--muted); }
+
+  .empty { padding: 48px; text-align: center; color: var(--muted); font-size: 14px; }
+
+  /* ── HIDDEN ── */
+  .hidden { display: none !important; }
+
+  @media (max-width: 600px) {
+    header { padding: 14px 16px; }
+    .page { padding: 20px 14px; }
+    .control-card { padding: 20px 16px; }
+    .quota-grid { grid-template-columns: 1fr; }
+    .metrics { grid-template-columns: repeat(2, 1fr); }
+    .control-top { flex-direction: column; align-items: stretch; }
+    .btn-gerar { justify-content: center; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <svg viewBox="0 0 20 20"><path d="M10 2L2 7v2h16V7L10 2zM4 11v5h2v-5H4zm5 0v5h2v-5H9zm5 0v5h2v-5h-2zM2 17h16v2H2v-2z"/></svg>
+  </div>
+  <h1>Quadro de Aprovados</h1>
+  <span>— PCCE</span>
+</header>
+
+<div class="page">
+
+  <!-- CONTROLES -->
+  <div class="control-card">
+    <div class="control-top">
+      <div class="field">
+        <label for="totalInput">Total de vagas</label>
+        <input type="number" id="totalInput" value="100" min="1" max="2259" step="1" />
+      </div>
+      <button class="btn-gerar" id="btnGerar" onclick="fetchAprovados()">
+        <div class="spinner"></div>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
+        Gerar lista
+      </button>
+    </div>
+
+    <div class="quota-grid">
+      <div class="quota-pill">
+        <div class="qp-header">
+          <span class="qp-badge" style="background:var(--blue-bg);color:var(--blue);">Ampla concorrência</span>
+          <span class="qp-pct">75%</span>
+        </div>
+        <div class="qp-count" id="qtdAmpla" style="color:var(--blue);">75</div>
+        <div class="qp-bar"><div class="qp-fill" id="barAmpla" style="background:var(--blue);width:20%;"></div></div>
+      </div>
+      <div class="quota-pill">
+        <div class="qp-header">
+          <span class="qp-badge" style="background:var(--pink-bg);color:var(--pink);">Cotas — Negro</span>
+          <span class="qp-pct">20%</span>
+        </div>
+        <div class="qp-count" id="qtdNegro" style="color:var(--pink);">20</div>
+        <div class="qp-bar"><div class="qp-fill" id="barNegro" style="background:var(--pink);width:20%;"></div></div>
+      </div>
+      <div class="quota-pill">
+        <div class="qp-header">
+          <span class="qp-badge" style="background:var(--green-bg);color:var(--green);">Cotas — PcD</span>
+          <span class="qp-pct">5%</span>
+        </div>
+        <div class="qp-count" id="qtdPcd" style="color:var(--green);">5</div>
+        <div class="qp-bar"><div class="qp-fill" id="barPcd" style="background:var(--green);width:20%;"></div></div>
+      </div>
+    </div>
+
+    <div class="error" id="errorMsg"></div>
+  </div>
+
+  <!-- MÉTRICAS -->
+  <div class="metrics hidden" id="metricsRow">
+    <div class="metric">
+      <div class="metric-label">Total selecionado</div>
+      <div class="metric-value" id="mTotal">—</div>
+    </div>
+    <div class="metric">
+      <div class="metric-label">Ampla</div>
+      <div class="metric-value" style="color:var(--blue);" id="mAmpla">—</div>
+    </div>
+    <div class="metric">
+      <div class="metric-label">Negro</div>
+      <div class="metric-value" style="color:var(--pink);" id="mNegro">—</div>
+    </div>
+    <div class="metric">
+      <div class="metric-label">PcD</div>
+      <div class="metric-value" style="color:var(--green);" id="mPcd">—</div>
+    </div>
+  </div>
+
+  <!-- QUADRO -->
+  <div class="board hidden" id="boardEl">
+    <div class="tabs">
+      <button class="tab active" id="tabAmpla" onclick="switchTab('ampla')">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>
+        Ampla
+        <span class="tab-chip" id="tcAmpla" style="background:var(--blue-bg);color:var(--blue);">0</span>
+      </button>
+      <button class="tab" id="tabNegro" onclick="switchTab('negro')">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
+        Negro
+        <span class="tab-chip" id="tcNegro" style="background:var(--pink-bg);color:var(--pink);">0</span>
+      </button>
+      <button class="tab" id="tabPcd" onclick="switchTab('pcd')">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
+        PcD
+        <span class="tab-chip" id="tcPcd" style="background:var(--green-bg);color:var(--green);">0</span>
+      </button>
+    </div>
+
+    <div class="board-toolbar">
+      <div class="search-wrap">
+        <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input type="text" id="searchInput" placeholder="Buscar por nome..." oninput="renderTable()" />
+      </div>
+      <span class="board-count" id="boardCount"></span>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th class="td-rank">Rank</th>
+            <th>Nome</th>
+            <th class="right td-nota">Nota</th>
+            <th class="right td-pedido">Pedido</th>
+          </tr>
+        </thead>
+        <tbody id="tableBody"></tbody>
+      </table>
+      <div class="empty hidden" id="emptyState">Nenhum candidato encontrado.</div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  /* ── state ── */
+  const data = { ampla: [], negro: [], pcd: [] };
+  let activeTab = 'ampla';
+  const MAX = { ampla: 375, negro: 98, pcd: 25 };
+  const COLORS = { ampla: 'var(--blue)', negro: 'var(--pink)', pcd: 'var(--green)' };
+
+  /* ── pills ── */
+  function updatePills() {
+    const t = parseInt(document.getElementById('totalInput').value) || 0;
+    const a = Math.floor(0.75 * t);
+    const n = Math.floor(0.20 * t);
+    const p = Math.floor(0.05 * t);
+    document.getElementById('qtdAmpla').textContent = a;
+    document.getElementById('qtdNegro').textContent = n;
+    document.getElementById('qtdPcd').textContent   = p;
+    document.getElementById('barAmpla').style.width = Math.min(100, (a / MAX.ampla) * 100) + '%';
+    document.getElementById('barNegro').style.width = Math.min(100, (n / MAX.negro) * 100) + '%';
+    document.getElementById('barPcd').style.width   = Math.min(100, (p / MAX.pcd)   * 100) + '%';
+  }
+
+  document.getElementById('totalInput').addEventListener('input', updatePills);
+  document.getElementById('totalInput').addEventListener('keydown', e => { if (e.key === 'Enter') fetchAprovados(); });
+  updatePills();
+
+  /* ── fetch ── */
+  async function fetchAprovados() {
+    const total = parseInt(document.getElementById('totalInput').value);
+    const errEl = document.getElementById('errorMsg');
+    errEl.style.display = 'none';
+
+    if (!total || total < 1) {
+      errEl.textContent = 'Informe um número válido de vagas.';
+      errEl.style.display = 'block';
+      return;
+    }
+
+    const btn = document.getElementById('btnGerar');
+    btn.classList.add('loading');
+
+    try {
+      const res = await fetch(`/aprovados?total=${total}`);
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const json = await res.json();
+
+      data.ampla = json.listas.ampla || [];
+      data.negro = json.listas.negro || [];
+      data.pcd   = json.listas.pcd   || [];
+
+      document.getElementById('tcAmpla').textContent = data.ampla.length;
+      document.getElementById('tcNegro').textContent = data.negro.length;
+      document.getElementById('tcPcd').textContent   = data.pcd.length;
+
+      document.getElementById('mTotal').textContent = json.resumo_entrega.total_selecionado;
+      document.getElementById('mAmpla').textContent = json.resumo_entrega.ampla_selecionados;
+      document.getElementById('mNegro').textContent = json.resumo_entrega.negro_selecionados;
+      document.getElementById('mPcd').textContent   = json.resumo_entrega.pcd_selecionados;
+
+      document.getElementById('metricsRow').classList.remove('hidden');
+      document.getElementById('boardEl').classList.remove('hidden');
+
+      document.getElementById('searchInput').value = '';
+      renderTable();
+    } catch (e) {
+      errEl.textContent = 'Erro ao conectar à API: ' + e.message;
+      errEl.style.display = 'block';
+    } finally {
+      btn.classList.remove('loading');
+    }
+  }
+
+  /* ── tabs ── */
+  function switchTab(tab) {
+    activeTab = tab;
+    ['Ampla', 'Negro', 'Pcd'].forEach(t => {
+      document.getElementById('tab' + t).classList.toggle('active', t.toLowerCase() === tab);
+    });
+    document.getElementById('searchInput').value = '';
+    renderTable();
+  }
+
+  /* ── table ── */
+  function renderTable() {
+    const q = document.getElementById('searchInput').value.toLowerCase();
+    const rows = data[activeTab].filter(c => (c.Nome || '').toLowerCase().includes(q));
+
+    const tbody = document.getElementById('tableBody');
+    const empty = document.getElementById('emptyState');
+    const count = document.getElementById('boardCount');
+
+    count.textContent = rows.length + ' candidato' + (rows.length !== 1 ? 's' : '');
+
+    if (rows.length === 0) {
+      tbody.innerHTML = '';
+      empty.classList.remove('hidden');
+      return;
+    }
+    empty.classList.add('hidden');
+
+    const nc = COLORS[activeTab];
+    const rankClass = r => r === 1 ? 'gold' : r === 2 ? 'silver' : r === 3 ? 'bronze' : '';
+    const rankLabel = r => r === 1 ? '1° 🥇' : r === 2 ? '2° 🥈' : r === 3 ? '3° 🥉' : r + '°';
+
+    tbody.innerHTML = rows.map((c, i) => {
+      const rank = i + 1;
+      const nome = String(c.Nome || '—').replace(/&/g,'&amp;').replace(/</g,'&lt;');
+      return `<tr>
+        <td class="td-rank ${rankClass(rank)}">${rankLabel(rank)}</td>
+        <td class="td-nome" title="${nome}">${nome}</td>
+        <td class="right td-nota" style="color:${nc};">${c.Total || '—'}</td>
+        <td class="right td-pedido">${c.Pedido || '—'}</td>
+      </tr>`;
+    }).join('');
+  }
+</script>
+</body>
+</html>
