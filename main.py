@@ -2,7 +2,6 @@ import pandas as pd
 import numpy as np
 from fastapi import FastAPI, Query, HTTPException
 from fastapi.responses import Response, FileResponse
-from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 import json
 import os
@@ -28,7 +27,7 @@ def get_clean_data():
         df = pd.read_csv(CSV_PATH)
         df["Geral"] = pd.to_numeric(df["Geral"], errors="coerce")
         df["Negro"] = pd.to_numeric(df["Negro"], errors="coerce")
-        df["PcD"] = pd.to_numeric(df["PcD"], errors="coerce")
+        df["PcD"]   = pd.to_numeric(df["PcD"],   errors="coerce")
         return df
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erro ao carregar base de dados: {str(e)}")
@@ -68,15 +67,25 @@ def calcular_aprovados(total: int = Query(..., gt=0, description="Número total 
     qtd_negro = int(0.20 * total)
     qtd_pcd   = int(0.05 * total)
 
-    df_ampla = df[df["Geral"].notna()].sort_values(by="Geral").iloc[:qtd_ampla]
-    df_negro = df[df["Negro"].notna()].sort_values(by="Negro").iloc[:qtd_negro]
+    # Cada grupo já separado pelo campo Situação,
+    # ordenado pela sua própria coluna de ranking
+    df_ampla = (
+        df[df["Situação"] == "Classificado (Ampla)"]
+        .sort_values("Geral")
+        .iloc[:qtd_ampla]
+    )
 
-    df_pcd_base = df[
-        (df["Situação"].str.contains("PcD", na=False)) &
-        (~df["Pedido"].isin(df_ampla["Pedido"])) &
-        (~df["Pedido"].isin(df_negro["Pedido"]))
-    ]
-    df_pcd = df_pcd_base.iloc[:qtd_pcd]
+    df_negro = (
+        df[df["Situação"] == "Classificado (Negro)"]
+        .sort_values("Negro")
+        .iloc[:qtd_negro]
+    )
+
+    df_pcd = (
+        df[df["Situação"] == "Classificado (PcD)"]
+        .sort_values("PcD")
+        .iloc[:qtd_pcd]
+    )
 
     resultado = {
         "configuracao": {
